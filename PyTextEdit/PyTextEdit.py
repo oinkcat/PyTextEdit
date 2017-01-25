@@ -5,100 +5,129 @@ import tkFileDialog as dialogs
 import tkMessageBox as msgs
 import os.path as path
 
-NAME = u'Text editor'
+class SimpleTextEditorApp:
+    ''' Simple text editor application '''
 
-wnd = None
-modified = False
-txt = None
+    WINDOW_TITLE = u'Text editor'
 
-def createUI():
-    global wnd, txt
+    def __init__(self):
+        ''' Initialize data and create UI '''
 
-    wnd = Tk()
-    wnd.title(NAME)
-    wnd.protocol('WM_DELETE_WINDOW', exit)
+        self.wnd = None
+        self.modified = False
+        self.txt = None
+        self.create_ui()
 
-    mainMenu = Menu(wnd)
-    fileMenu=Menu(mainMenu,tearoff=0)
-    fileMenu.add_command(label=u'New', command=newFile)
-    fileMenu.add_command(label=u'Open...', command=openFile)
-    fileMenu.add_command(label=u'Save as...', command=saveFile)
-    fileMenu.add_separator()
-    fileMenu.add_command(label=u'Exit', command=exit)
-    mainMenu.add_cascade(label=u'File', menu=fileMenu)
-    wnd.config(menu=mainMenu)
+    def run(self):
+        ''' Start application's event loop '''
 
-    txt = Text(wnd, width=100, height=40)
-    yscrollbar = Scrollbar(wnd, orient=VERTICAL, command=txt.yview)
-    yscrollbar.pack(side=RIGHT, fill=Y)
-    txt['yscrollcommand'] = yscrollbar.set
-    txt.bind('<<Modified>>', setModified)
-    txt.pack(fill=BOTH, anchor=S, expand=YES)
+        mainloop()
 
-def exit():
-    if askSaveIfModified():
-        wnd.destroy()
+    def create_ui(self):
+        ''' Create application GUI '''
 
-def askSaveIfModified():
-    canContinue = True
-    if modified:
-        answer = msgs.askyesnocancel(u'Text has been modified', 
-                                     u'Text has been modified. Save changes?')
-        if answer == True:
-            canContinue = saveFile()
-        else:
-            canContinue = answer is not None
-    return canContinue
+        self.wnd = Tk()
+        self.wnd.title(SimpleTextEditorApp.WINDOW_TITLE)
+        # Subscribe to window close message
+        self.wnd.protocol('WM_DELETE_WINDOW', self.exit)
 
-def clear():
-    txt.delete('1.0', END)
-    clearModified()
+        # Create menu
+        main_menu = Menu(self.wnd)
+        file_menu=Menu(main_menu,tearoff=0)
+        file_menu.add_command(label=u'New', command=self.new_file)
+        file_menu.add_command(label=u'Open...', command=self.open_file)
+        file_menu.add_command(label=u'Save as...', command=self.save_file)
+        file_menu.add_separator()
+        file_menu.add_command(label=u'Exit', command=self.exit)
+        main_menu.add_cascade(label=u'File', menu=file_menu)
+        self.wnd.config(menu=main_menu)
 
-def newFile():
-    if askSaveIfModified():
-        clear()
+        # Create text editing box with scrollbar and put into layout
+        self.txt = Text(self.wnd, width=100, height=40)
+        yscrollbar = Scrollbar(self.wnd, orient=VERTICAL, command=self.txt.yview)
+        yscrollbar.pack(side=RIGHT, fill=Y)
+        self.txt['yscrollcommand'] = yscrollbar.set
+        self.txt.bind('<<Modified>>', self.set_modified)
+        self.txt.pack(fill=BOTH, anchor=S, expand=YES)
 
-def openFile():
-    if askSaveIfModified():
-        fileName = dialogs.askopenfilename(
-            title=u'Open text file',
-            filetypes=[(u'Plain text files', '*.txt')]
-            )
-        if path.exists(fileName):
-            clear()
-            readFile = open(fileName)
-            text = readFile.read()
-            readFile.close()
-            txt.insert('1.0', text)
-            txt.mark_set('insert', '1.0')
-            clearModified()
+    def exit(self):
+        ''' Exit application '''
 
-def saveFile():
-    saved = False
-    if modified:
-        fileName = dialogs.asksaveasfilename(
-            title=u'Save text file',
-            filetypes=[(u'Plain text files', '*.txt')],
-            defaultextension='.txt'
-            )
-        if path.exists(fileName):
-            writeFile = open(fileName, 'w')
-            text = txt.get('1.0', END)
-            writeFile.write(text)
-            writeFile.close()
+        if self.ask_save_if_modified():
+            self.wnd.destroy()
+
+    def ask_save_if_modified(self):
+        ''' Ask user to save modified file '''
+
+        can_continue = True
+        if self.modified:
+            answer = msgs.askyesnocancel(u'Text has been modified', 
+                                         u'Text has been modified. Save changes?')
+            if answer == True:
+                can_continue = self.save_file()
+            else:
+                can_continue = answer is not None
+        return can_continue
+
+    def clear(self):
+        ''' Clear all text in textbox '''
+
+        self.txt.delete('1.0', END)
+        self.clear_modified()
+
+    def new_file(self):
+        ''' Initialize new text file '''
+
+        if self.ask_save_if_modified():
+            self.clear()
+
+    def open_file(self):
+        ''' Open existing text file '''
+
+        if self.ask_save_if_modified():
+            file_name = dialogs.askopenfilename(
+                title=u'Open text file',
+                filetypes=[(u'Plain text files', '*.txt')]
+                )
+            if path.exists(file_name):
+                self.clear()
+                with open(file_name) as file_to_read:
+                    text = file_to_read.read()
+                self.txt.insert('1.0', text)
+                self.txt.mark_set('insert', '1.0')
+                # Clear modified flag
+                self.clear_modified()
+
+    def save_file(self):
+        ''' Save file to file system '''
+
+        saved = False
+        if self.modified:
+            file_name = dialogs.asksaveasfilename(
+                title=u'Save text file',
+                filetypes=[(u'Plain text files', '*.txt')],
+                defaultextension='.txt'
+                )
+
+            # Save all text from editing box to file
+            text = self.txt.get('1.0', END)
+            with open(file_name, 'w') as file_to_write:
+                file_to_write.write(text)
             saved = True
-            clearModified()
-    return saved
+            self.clear_modified()
+        return saved
 
-def clearModified():
-    global modified
-    txt.edit_modified(False)
-    modified = False
+    def clear_modified(self):
+        ''' Clear text modification flag '''
 
-def setModified(event):
-    global modified
-    modified = True
+        self.txt.edit_modified(False)
+        self.modified = False
 
+    def set_modified(self, event):
+        ''' Set text modification flag '''
+
+        self.modified = True
+
+# Entry point
 if __name__ == '__main__':
-    createUI()
-    mainloop()
+    SimpleTextEditorApp().run()
